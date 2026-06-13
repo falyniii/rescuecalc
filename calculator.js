@@ -7,7 +7,7 @@
   document.head.appendChild(style);
   var panel = document.createElement('div');
   panel.id = 'rescue-calc-panel';
-  panel.innerHTML = '<h2>RESCUE INTERCEPT CALC</h2><div style="background:#0d1117;border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px;color:#8bc;"><b style="color:#f90;">HOW TO USE:</b><br>1. Go to Rescue Driver route page, click Load Stops<br>2. Go to Driver in Need route page, click Load Stops<br>3. Select routes, enter current stop, click Calculate</div><label>RESCUE DRIVER ROUTE</label><select id="rc-rescue-route"><option value="">-- Load stops first --</option></select><label>DRIVER IN NEED OF SUPPORT</label><select id="rc-struggling-route"><option value="">-- Load stops first --</option></select><button class="rc-btn rc-load" id="rc-load-btn">Load Stops from Current Route Page</button><button class="rc-btn rc-clear" id="rc-clear-btn">Clear All Saved Stop Data</button><label>DRIVER IN NEED - CURRENT STOP #</label><input type="number" id="rc-current-stop" value="50" min="1"><label>CURRENT TIME (24h e.g. 01:56)</label><input type="text" id="rc-current-time" value="01:56"><label>MAX WAIT AT STOP (minutes)</label><input type="number" id="rc-max-wait" value="7" min="1" max="30"><button class="rc-btn rc-calc" id="rc-calc-btn">Calculate Intercept Point</button><div id="rc-status">Ready. Go to a driver route page and click Load Stops.</div><div id="rc-result"><div class="rc-meet" id="rc-meet-stop"></div><div class="rc-row"><span class="rc-lbl">Address</span><span class="rc-val" id="rc-meet-addr"></span></div><div class="rc-row"><span class="rc-lbl">Distance</span><span class="rc-val" id="rc-meet-dist"></span></div><div class="rc-row"><span class="rc-lbl">Drive Time</span><span class="rc-val" id="rc-meet-drive"></span></div><div class="rc-row"><span class="rc-lbl">Driver in Need ETA</span><span class="rc-val" id="rc-need-eta"></span></div><div class="rc-row"><span class="rc-lbl">Rescue Arrives</span><span class="rc-val" id="rc-rescue-eta"></span></div><div class="rc-row"><span class="rc-lbl">Wait Time</span><span class="rc-val" id="rc-wait"></span></div><button class="rc-btn rc-copy" id="rc-copy-btn">Copy Address</button></div><button class="rc-btn rc-close" id="rc-close-btn">Close</button>';
+  panel.innerHTML = '<h2>RESCUE INTERCEPT CALC</h2><div style="background:#0d1117;border-radius:6px;padding:8px;margin-bottom:8px;font-size:11px;color:#8bc;"><b style="color:#f90;">HOW TO USE:</b><br>1. Go to Rescue Driver route page, click Load Stops<br>2. Go to Driver in Need route page, click Load Stops<br>3. Select routes, enter current stop, click Calculate</div><label>RESCUE DRIVER ROUTE</label><select id="rc-rescue-route"><option value="">-- Load stops first --</option></select><label>DRIVER IN NEED OF SUPPORT</label><select id="rc-struggling-route"><option value="">-- Load stops first --</option></select><button class="rc-btn rc-load" id="rc-load-btn">Load Stops from Current Route Page</button><button class="rc-btn rc-clear" id="rc-clear-btn">Clear All Saved Stop Data</button><label>DRIVER IN NEED - CURRENT STOP #</label><input type="number" id="rc-current-stop" value="50" min="1"><label>CURRENT TIME (24h e.g. 14:30)</label><input type="text" id="rc-current-time" value="14:30"><label>MAX WAIT AT STOP (minutes)</label><input type="number" id="rc-max-wait" value="7" min="1" max="30"><button class="rc-btn rc-calc" id="rc-calc-btn">Calculate Intercept Point</button><div id="rc-status">Ready. Go to a driver route page and click Load Stops.</div><div id="rc-result"><div class="rc-meet" id="rc-meet-stop"></div><div class="rc-row"><span class="rc-lbl">Address</span><span class="rc-val" id="rc-meet-addr"></span></div><div class="rc-row"><span class="rc-lbl">Distance</span><span class="rc-val" id="rc-meet-dist"></span></div><div class="rc-row"><span class="rc-lbl">Drive Time</span><span class="rc-val" id="rc-meet-drive"></span></div><div class="rc-row"><span class="rc-lbl">Driver in Need ETA</span><span class="rc-val" id="rc-need-eta"></span></div><div class="rc-row"><span class="rc-lbl">Rescue Arrives</span><span class="rc-val" id="rc-rescue-eta"></span></div><div class="rc-row"><span class="rc-lbl">Wait Time</span><span class="rc-val" id="rc-wait"></span></div><button class="rc-btn rc-copy" id="rc-copy-btn">Copy Address</button></div><button class="rc-btn rc-close" id="rc-close-btn">Close</button>';
   document.body.appendChild(panel);
   function setStatus(msg){ document.getElementById('rc-status').textContent=msg; }
   function saveToSession(){ try{ sessionStorage.setItem('_RESCUE_STOP_DATA',JSON.stringify(window._STOP_DATA)); }catch(e){} }
@@ -17,21 +17,37 @@
     ['rc-rescue-route','rc-struggling-route'].forEach(function(id){ var sel=document.getElementById(id), prev=sel.value; sel.innerHTML='<option value="">-- Select --</option>'; routes.forEach(function(r){ var opt=document.createElement('option'); opt.value=r.key; opt.textContent=r.label; sel.appendChild(opt); }); if(prev) sel.value=prev; });
   }
   function parseStopsFromPage(){
-    var text=document.body.innerText, lines=text.split('
-').map(function(l){ return l.trim(); }).filter(function(l){ return l.length>0; });
+    var text=document.body.innerText, lines=text.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length>0; });
     var cx=null,driverName=null,routeId=null;
-    var urlMatch=window.location.pathname.match(/routes/([w-]+)/); if(urlMatch) routeId=urlMatch[1];
-    for(var i=0;i<lines.length;i++){ var cxMatch=lines[i].match(/^(CXd+)$/); if(cxMatch){ cx=cxMatch[1]; for(var j=i+1;j<Math.min(i+8,lines.length);j++){ var l=lines[j]; if(l.match(/^CXd+$/)||l.match(/^d+$/)||l==='Contact') continue; if(l.match(/^[A-Z][a-z]+ [A-Z][a-z]+/)||l.match(/^[A-Z][a-z]+$/)){ driverName=l; break; } } break; } }
-    var pace=15; var paceMatch=text.match(/(d+)s*stops?/hr/i); if(paceMatch) pace=parseInt(paceMatch[1]);
+    var urlMatch=window.location.pathname.match(/routes\/(\w[\w-]*)/); if(urlMatch) routeId=urlMatch[1];
+    for(var i=0;i<lines.length;i++){ var cxMatch=lines[i].match(/^(CX\d+)$/); if(cxMatch){ cx=cxMatch[1]; for(var j=i+1;j<Math.min(i+8,lines.length);j++){ var l=lines[j]; if(l.match(/^CX\d+$/)||l.match(/^\d+$/)||l==='Contact') continue; if(l.match(/^[A-Z][a-z]+ [A-Z][a-z]+/)||l.match(/^[A-Z][a-z]+$/)){ driverName=l; break; } } break; } }
+    var pace=15; var paceMatch=text.match(/(\d+)\s*stops?\/hr/i); if(paceMatch) pace=parseInt(paceMatch[1]);
     var stops=[],stopNums=new Set();
-    for(var i=0;i<lines.length-1;i++){ var numMatch=lines[i].match(/^(d{1,3})$/); if(!numMatch) continue; var num=parseInt(numMatch[1]); if(num<1||num>400) continue; if(stopNums.has(num)) continue; var ctx=lines[i-1]||''; if(ctx.match(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/)) continue; if(ctx.match(/CXd+/)) continue; var nextLine=lines[i+1]||''; if(nextLine.length<5) continue; if(nextLine.match(/^d+$/)||nextLine.match(/^CXd+$/)) continue; if(nextLine.match(/stops?/hr|packages|completed|remaining/i)) continue; stopNums.add(num); stops.push({num:num,address:nextLine}); }
+    for(var i=0;i<lines.length-1;i++){
+      var numMatch=lines[i].match(/^(\d{1,3})$/); if(!numMatch) continue;
+      var num=parseInt(numMatch[1]); if(num<1||num>400) continue;
+      if(stopNums.has(num)) continue;
+      var ctx=lines[i-1]||'';
+      if(ctx.match(/Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/)) continue;
+      var nextLine=lines[i+1]||'';
+      if(nextLine.length<5) continue;
+      if(nextLine.match(/^\d+$/)||nextLine.match(/^CX\d+$/)) continue;
+      if(nextLine.match(/stops?\/hr|packages|completed|remaining|Route progress|Inactive|progress|overview/i)) continue;
+      // Must look like a real street address
+      var isAddr = nextLine.match(/^\d+\s+\w/) ||
+                   nextLine.match(/\b(St|Ave|Rd|Dr|Ln|Blvd|Ct|Way|Pl|Ter|Cir|Hwy|Route|Rte)\b/i) ||
+                   nextLine.match(/^(Cottages|Villas|Apartments|Homes|Commons|Village|Park|Gardens)\s+At\s+/i);
+      if(!isAddr) continue;
+      stopNums.add(num);
+      stops.push({num:num,address:nextLine});
+    }
     stops.sort(function(a,b){ return a.num-b.num; });
     return {cx:cx,driverName:driverName,routeId:routeId,pace:pace,stops:stops};
   }
   document.getElementById('rc-load-btn').addEventListener('click',function(){
     setStatus('Parsing stops from page...');
     var parsed=parseStopsFromPage();
-    if(!parsed.stops||parsed.stops.length<2){ setStatus('Could not parse stops. Go to a route detail page first.'); return; }
+    if(!parsed.stops||parsed.stops.length<2){ setStatus('Could not parse stops. Go to a route detail page first (click a CX route from the list).'); return; }
     var key=parsed.cx||parsed.routeId||'route_'+Date.now();
     var label=(parsed.cx||key)+(parsed.driverName?' - '+parsed.driverName:'')+' ('+parsed.pace+'/hr)';
     window._STOP_DATA[key]={label:label,cx:parsed.cx,driverName:parsed.driverName,routeId:parsed.routeId,pace:parsed.pace,stops:parsed.stops,lastStop:parsed.stops[parsed.stops.length-1].address};
@@ -41,7 +57,7 @@
     var cxKeys=Object.keys(window._STOP_DATA).filter(function(k){ return k.startsWith('CX')&&window._STOP_DATA[k]&&window._STOP_DATA[k].label; });
     if(cxKeys.length===1){ document.getElementById('rc-rescue-route').value=cxKeys[0]; }
     else if(cxKeys.length>=2){ var rs=document.getElementById('rc-rescue-route').value; if(!rs){ document.getElementById('rc-rescue-route').value=cxKeys[0]; rs=cxKeys[0]; } var other=cxKeys.find(function(r){ return r!==rs; }); if(other&&!document.getElementById('rc-struggling-route').value) document.getElementById('rc-struggling-route').value=other; }
-    setStatus('Loaded '+parsed.stops.length+' stops for '+label+'. Now go to the other driver route page and load their stops.');
+    setStatus('Loaded '+parsed.stops.length+' stops for '+label+'. Last stop: '+parsed.stops[parsed.stops.length-1].address+'. Now go to the other driver route page and load their stops.');
   });
   document.getElementById('rc-clear-btn').addEventListener('click',function(){ window._STOP_DATA={}; try{ sessionStorage.removeItem('_RESCUE_STOP_DATA'); }catch(e){} updateDropdowns(); document.getElementById('rc-result').style.display='none'; setStatus('All stop data cleared.'); });
   function geocode(addr){ return fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(addr)).then(function(r){ return r.json(); }).then(function(d){ return d.length?{lat:parseFloat(d[0].lat),lon:parseFloat(d[0].lon)}:null; }); }
@@ -54,10 +70,10 @@
     if(rk===nk){ setStatus('Select two different routes.'); return; }
     var rd=window._STOP_DATA[rk],nd=window._STOP_DATA[nk];
     if(!rd||!nd){ setStatus('Stop data missing. Load stops for both routes.'); return; }
-    setStatus('Geocoding rescue driver location...');
+    setStatus('Geocoding rescue driver last stop location...');
     var rc=await geocode(rd.lastStop+' NJ');
     if(!rc) rc=await geocode(rd.lastStop);
-    if(!rc){ setStatus('Could not geocode: '+rd.lastStop); return; }
+    if(!rc){ setStatus('Could not geocode rescue driver last stop: '+rd.lastStop+'. Try reloading their stops.'); return; }
     var now=parseTime(ct),pace=nd.pace||15,ns=nd.stops,si=ns.findIndex(function(s){ return s.num>=cs; });
     if(si<0) si=0;
     setStatus('Checking intercept points...');
